@@ -383,6 +383,7 @@ This function takes a single parameter and returns true if it's an operator or h
 */
 var global = this;
 var server;
+global.nashorn = typeof Java !== 'undefined';
 /*
   private implementation
 */
@@ -454,7 +455,7 @@ function __onEnable ( __engine, __plugin, __script ) {
         }
         result = JSON.parse(contents);
       } catch ( e ) {
-        logger.error( 'Error evaluating ' + canonizedFilename + ', ' + e );
+	logError('Error evaluating ' + canonizedFilename + ', ' + e );
       }
       finally {
         try {
@@ -497,7 +498,7 @@ function __onEnable ( __engine, __plugin, __script ) {
         result = __engine.eval( wrappedCode );
         // issue #103 avoid side-effects of || operator on Mac Rhino
       } catch ( e ) {
-        logger.error( 'Error evaluating ' + canonizedFilename + ', ' + e );
+	logError('Error evaluating ' + canonizedFilename + ', ' + e );
       }
       finally {
         try {
@@ -508,7 +509,7 @@ function __onEnable ( __engine, __plugin, __script ) {
       }
     } else {
       if ( warnOnFileNotFound ) {
-        logger.warning( canonizedFilename + ' not found' );
+	logWarn(canonizedFilename + ' not found' );
       }
     }
     return result;
@@ -612,19 +613,19 @@ function __onEnable ( __engine, __plugin, __script ) {
                 echo(sender, JSON.stringify( jsResult, replacer, 2) );
               }
             } catch ( displayError ) { 
-              logger.error( 'Error while trying to display result: ' + jsResult + ', Error: '+ displayError );
+	      logError('Error while trying to display result: ' + jsResult + ', Error: '+ displayError) ;
             }
           }
         } 
       } catch ( e ) {
-        logger.error( 'Error while trying to evaluate javascript: ' + fnBody + ', Error: '+ e );
+        logError( 'Error while trying to evaluate javascript: ' + fnBody + ', Error: '+ e );
         echo( sender, 'Error while trying to evaluate javascript: ' + fnBody + ', Error: '+ e );
         throw e;
       } finally {
         /*
          wph 20140312 don't delete self on nashorn until https://bugs.openjdk.java.net/browse/JDK-8034055 is fixed
          */
-        if ( typeof Java === 'undefined' ) { // Java is an object in Nashorn
+        if ( !nashorn ) { 
           delete global.self;
           delete global.__engine;
         }
@@ -650,7 +651,12 @@ function __onEnable ( __engine, __plugin, __script ) {
     server = Bukkit.server;
     logger = __plugin.logger;
   }
-
+  function logError(msg){
+    __plugin.canary ? logger.error( msg ) : logger.severe( msg );
+  }
+  function logWarn(msg){
+    __plugin.canary ? logger.warn( msg ) : logger.warning( msg );
+  }
   var File = java.io.File,
     FileReader = java.io.FileReader,
     BufferedReader = java.io.BufferedReader,
