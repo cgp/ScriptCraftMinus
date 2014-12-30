@@ -1,13 +1,9 @@
-/*global __plugin, require, org, setTimeout, addUnloadHandler, exports, global*/
+/*global __plugin, require, org, setTimeout, addUnloadHandler, exports, global, Packages*/
 var utils = require('utils'),
   blocks = require('blocks'),
-  bountiful = false,
   THOUSAND = 1000,
-  MILLION = THOUSAND ^ 2;
+  MILLION = THOUSAND * THOUSAND;
 
-if (__plugin.canary){
-  bountiful = parseFloat(server.canaryModVersion) > 1.7;
-}
 
 /*********************************************************************
 ## Drone Plugin
@@ -19,7 +15,7 @@ The Drone is a convenience class for building. It can be used for...
 
 It uses a fluent interface which means all of the Drone's methods return `this` and can be chained together like so...
 
-    var theDrone = new Drone();
+    var theDrone = new Drone(self);
     theDrone.up().left().box(blocks.oak).down().fwd(3).cylinder0(blocks.lava,8); 
 
 ### Constructing a Drone Object
@@ -32,7 +28,7 @@ Drones can be created in any of the following ways...
 
    ... creates a 1x1x1 wooden block at the cross-hairs or player's location and returns a Drone object. This might look odd (if you're familiar with Java's Object-dot-method syntax) but all of the Drone class's methods are also global functions that return new Drone objects. This is short-hand for creating drones and is useful for playing around with Drones at the in-game command prompt. It's shorter than typing ...
     
-        var d = new Drone().box( blocks.oak ) 
+        var d = new Drone(self).box( blocks.oak ) 
         
    ... All of the Drone's methods return `this` so you can chain operations together like this...
         
@@ -51,7 +47,7 @@ Drones can be created in any of the following ways...
     
  2. Using the following form...
 
-        d = new Drone()
+        d = new Drone(self)
     
     ...will create a new Drone. If the cross-hairs are pointing at a block at the time then, that block's location becomes the drone's starting point.  If the cross-hairs are _not_ pointing at a block, then the drone's starting location will be 2 blocks directly in front of the player.  TIP: Building always happens right and front of the drone's position...
     
@@ -62,9 +58,9 @@ Drones can be created in any of the following ways...
         |
         D---->
       
-    For convenience you can use a _corner stone_ to begin building. The corner stone should be located just above ground level. If the cross-hair is point at or into ground level when you create a new Drone(), then building begins at that point. You can get around this by pointing at a 'corner stone' just above ground level or alternatively use the following statement...
+    For convenience you can use a _corner stone_ to begin building. The corner stone should be located just above ground level. If the cross-hair is point at or into ground level when you create a new Drone() with either a player or location given as a parameter, then building begins at the location the player was looking at or at the location. You can get around this by pointing at a 'corner stone' just above ground level or alternatively use the following statement...
     
-        d = new Drone().up();
+        d = new Drone(self).up();
           
     ... which will move the drone up one block as soon as it's created.
 
@@ -90,7 +86,7 @@ Drones can be created in any of the following ways...
 
 #### Parameters
 
- * location (optional) : *NB* If an `org.bukkit.Location` object is provided as a parameter, then it should be the only parameter.
+ * location (optional) : *NB* If a `Location` object is provided as a parameter, then it should be the only parameter.
  * x (optional) : The x coordinate of the Drone
  * y (optional) : The y coordinate of the Drone
  * z (optional) : The z coordinate of the Drone
@@ -117,7 +113,7 @@ To create a black structure 4 blocks wide, 9 blocks tall and 1 block long...
 
 ... or the following code does the same but creates a variable that can be used for further methods...
 
-    var drone = new Drone();
+    var drone = new Drone(self);
     drone.box(blocks.wool.black, 4, 9, 1);
 
 ![box example 1](img/boxex1.png)
@@ -310,42 +306,26 @@ function getDirFromRotation( location ) {
     return 0; // east
   return 1; // south
 }
-
-function putBlock( x, y, z, blockId, metadata, world ) {
+function putBlock( x, y, z, blockId, metadata, world, dir ) {
   if ( typeof metadata == 'undefined' ) {
     metadata = 0;
   }
-  var block = world.getBlockAt( x, y, z );
-  if ( block.typeId != blockId || block.data != metadata ) {
-    if (__plugin.canary) {
-      world.setBlockAt(x, y, z, blockId, metadata);
-      if ( bountiful ){
-	// TODO we are in 1.8 
-	var prop = require('blockhelper').property;
-	block = world.getBlockAt(x,y,z);
-	switch (blockId){
-	  case blocks.wool.white:
-	  case blocks.stained_clay.white:
-	  case blocks.stained_glass.white:
-	  case blocks.carpet.white:
-	    prop(block).set('color',metadata);
-	    block.update();
-	    break;
-	  case blocks.torch:
-	    /* TODO This doesn't work right now */
-	    if (metadata >= 0 && metadata <= 3){
-	      prop(block).set('facing',metadata);
-	      block.update();
-	    }
-	}
-      }
-      return;
-    }
-    if (__plugin.bukkit) {
-      block.setTypeIdAndData( blockId, metadata, false );
-      block.data = metadata;
-      return;
-    }
+  var block = world.getBlockAt( x, y, z ),
+      placed = false;
+
+  if (block.typeId === blockId && block.data === metadata) {
+    return;
+  }
+  if (__plugin.canary) {
+    var BlockType = Packages.net.canarymod.api.world.blocks.BlockType;
+    block.type = BlockType.fromId(blockId);
+    var applyProperties = require('blockhelper').applyProperties;
+    applyProperties(block, metadata);
+    block.update();
+  }
+  if (__plugin.bukkit) {
+    block.setTypeIdAndData( blockId, metadata, false );
+    block.data = metadata;
   }
 }
 
@@ -583,9 +563,8 @@ Drone.prototype.setBlock = function(blockType, data, ox, oy, oz){
     oy = 0;
   if (typeof oz == 'undefined')
     oz = 0;
-  putBlock(this.x + ox, this.y + oy, this.z + oz, blockType, data, this.world);
+  putBlock(this.x + ox, this.y + oy, this.z + oz, blockType, data, this.world, this.dir);
 };
-Drone.prototype.bountiful = bountiful;
 Drone.prototype.traverseWidth = function(width, callback){
   _traverse[this.dir].width(this, width, callback);
 };
@@ -740,6 +719,7 @@ Drone.prototype.cuboid0 = function( block, w, h, d ) {
 // block dirs:  0 = east, 1 = west,  2 = south , 3 = north
 // sign dirs:   5 = east, 3 = south, 4 = west, 2 = north
 Drone.PLAYER_STAIRS_FACING = [ 0, 2, 1, 3 ];
+
 // for blocks 68 (wall signs) 65 (ladders) 61,62 (furnaces) 23 (dispenser) and 54 (chest)
 Drone.PLAYER_SIGN_FACING = [ 4, 2, 5, 3 ]; 
 Drone.PLAYER_TORCH_FACING = [ 2, 4, 1, 3 ];
@@ -765,36 +745,59 @@ function _getBlockIdAndMeta( b ) {
     bs,
     md,
     sp;
-  if ( typeof b == 'string' ) { 
+  if (typeof b === 'number' || /^[0-9]+$/.test(b)) {
+    // wph 20130414 - use sensible defaults for certain blocks e.g. stairs
+    // should face the drone.
+    switch (b) {
+      case blocks.stairs.oak:
+      case blocks.stairs.cobblestone:
+      case blocks.stairs.brick:
+      case blocks.stairs.stone:
+      case blocks.stairs.nether:
+      case blocks.stairs.sandstone:
+      case blocks.stairs.spruce:
+      case blocks.stairs.jungle:
+      case blocks.stairs.quartz:
+        defaultMeta = Drone.PLAYER_STAIRS_FACING[ this.dir % 4 ];
+        break;
+      case blocks.sign:
+      case blocks.ladder:
+      // bug: furnace, chest, dispenser don't always use the right metadata
+      case blocks.furnace:  
+      case blocks.furnace_burning: 
+      case blocks.chest:
+      case blocks.enderchest:
+      case blocks.dispenser:
+	defaultMeta = Drone.PLAYER_SIGN_FACING[ this.dir % 4 ];
+	break;
+      case blocks.sign_post:
+	defaultMeta = ( 12 + ( ( this.dir + 2 ) * 4 ) ) % 16;
+	break;
+    }
+    return [ b, defaultMeta ];
+  }
+  if ( typeof b === 'string' ) { 
     bs = b;
     sp = bs.indexOf(':' );
     if ( sp == -1 ) { 
-      b = parseInt(bs );
-      // wph 20130414 - use sensible defaults for certain blocks e.g. stairs
-      // should face the drone.
-      for ( i in blocks.stairs ) { 
-        if ( blocks.stairs[i] === b ) { 
-          defaultMeta = Drone.PLAYER_STAIRS_FACING[this.dir];
-          break;
-        }
-      }
+      b = parseInt( bs );
       return [ b, defaultMeta ];
     }
     b = parseInt(bs.substring(0,sp ) );
     md = parseInt(bs.substring(sp+1,bs.length ) );
     return [b,md];
-  }else{
-    // wph 20130414 - use sensible defaults for certain blocks e.g. stairs
-    // should face the drone.
-    for ( i in blocks.stairs ) { 
-      if ( blocks.stairs[i] === b ) { 
-        defaultMeta = Drone.PLAYER_STAIRS_FACING[this.dir];
-        break;
-      }
-    }
-    return [ b, defaultMeta ];
   }
-};
+  if (b.id){
+    // wph 20141230 we are dealing with an object 
+    var blockInfo = b;
+    var metadata = {};
+    for (i in b){
+      if (i !== 'id')
+	metadata[i] = b[i];
+    }
+    return [b.id, metadata];
+  }
+}
 var _traverse = [{},{},{},{}];
 // east
 function walkWidthEast( drone, n,callback ) { 

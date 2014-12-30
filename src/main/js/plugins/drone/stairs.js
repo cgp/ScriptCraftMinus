@@ -38,16 +38,10 @@ function stairs(blockType, width, height){
   if (typeof height === 'undefined')
     height = 1;
   this.chkpt('_stairs');
+  var bm = this._getBlockIdAndMeta(blockType);
   while (height > 0) {
     this.traverseWidth(width, function(){
-      this.setBlock(blockType, Drone.PLAYER_STAIRS_FACING[this.dir]);
-	if ( this.bountiful ){
-	  // 1.8
-	  var prop = require('blockhelper').property;
-	  var block = this.getBlock();
-	  prop(block).set('facing',that.dir);
-	  block.update();
-	}
+      this.setBlock(bm[0], bm[1]);
     });
 
     this.fwd().up();
