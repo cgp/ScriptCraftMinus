@@ -371,6 +371,7 @@ Walter Higgins
    * [Drone Constants](#drone-constants)
    * [Drone.times() Method](#dronetimes-method)
    * [Drone.arc() method](#dronearc-method)
+   * [Drone.bed() method](#dronebed-method)
    * [Drone.blocktype() method](#droneblocktype-method)
    * [Copy & Paste using Drone](#copy--paste-using-drone)
    * [Drone.copy() method](#dronecopy-method)
@@ -4416,6 +4417,26 @@ stroke width of 2 blocks ...
 [bres]: http://en.wikipedia.org/wiki/Midpoint_circle_algorithm
 [dv]: http://www.minecraftwiki.net/wiki/Data_values
 
+### Drone.bed() method
+
+Creates a bed. The foot of the bed will be at the drone's location and
+the head of the bed will extend away from the drone.
+
+#### Example
+To create a bed at the in-game prompt, look at a block then type:
+
+```javascript
+/js bed()
+```
+
+Like most Drone methods, this returns the drone so it can be chained like so:
+
+```javascript
+this
+  .fwd(3)
+  .bed()
+  .back(3)
+```     
 ### Drone.blocktype() method
 
 Creates the text out of blocks. Useful for large-scale in-game signs.
@@ -4748,13 +4769,13 @@ Signs must use block 63 (stand-alone signs) or 68 (signs on walls)
 
 To create a free-standing sign...
 
-    drone.sign(["Hello","World"],63);
+    drone.sign(["Hello","World"], blocks.sign_post);
 
 ![ground sign](img/signex1.png)
 
 ... to create a wall mounted sign...
 
-    drone.sign(["Welcome","to","Scriptopia"], 68 );
+    drone.sign(["Welcome","to","Scriptopia"], blocks.sign );
 
 ![wall sign](img/signex2.png)
 
@@ -5295,7 +5316,7 @@ variable named after the player.
 
 So for example, if player 'walterh' joins the server, a `walterh`
 global variable is created. If a file `greet.js` with the following
-content is dropped into the `plugins/scriptcraft/players/walterh`
+content is dropped into the `scriptcraft/players/walterh`
 directory...
 
 ```javascript
@@ -5309,7 +5330,7 @@ lets every player/student create their own functions without having
 naming collisions.
 
 It's strongly recommended that the
-`craftbukkit/plugins/scriptcraft/players/` directory is shared so that
+`scriptcraft/players/` directory is shared so that
 others can connect to it and drop .js files into their student
 directories. On Ubuntu, select the folder in Nautilus (the default
 file browser) then right-click and choose *Sharing Options*, check the
